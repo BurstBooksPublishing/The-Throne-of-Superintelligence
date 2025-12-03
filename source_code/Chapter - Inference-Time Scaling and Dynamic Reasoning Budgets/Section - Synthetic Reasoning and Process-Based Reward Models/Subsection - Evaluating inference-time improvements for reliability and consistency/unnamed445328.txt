@@ -1,0 +1,19 @@
+def evaluate(tasks, budgets, trials=8):
+    results = []
+    for t in tasks:
+        for b in budgets:
+            answers, confs = [], []
+            for trial in range(trials):
+                ans, cot = model_api.generate(t.prompt, budget=b, cot=t.cot_setting)  # runtime control
+                p_hat = verifier_api(ans, cot)  # process-based reward signal
+                answers.append(ans)
+                confs.append(p_hat)
+            # empirical reliability (if labels available)
+            correct = np.mean([1 if a==t.label else 0 for a in answers]) if t.label else np.nan
+            # consistency via pairwise exact-match
+            pairwise = np.mean([1 if answers[i]==answers[j] else 0
+                                for i in range(trials) for j in range(i+1,trials)])
+            ece = compute_ece(confs, answers, bins=10)  # helper computes Eq. (2)
+            results.append({'task':t.id,'budget':b,'reliability':correct,
+                            'consistency':pairwise,'ece':ece})
+    return results
